@@ -1,0 +1,9 @@
+<?php
+
+function tag_install() {
+  
+}
+
+function tag_uninstall() {
+  
+}

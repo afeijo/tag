@@ -1,0 +1,5 @@
+name = Bubble Sort simulation
+description = tecnical test for TAG
+core = 7.x
+package = TAG
+#stylesheets[all][] = css/bubblesort.css

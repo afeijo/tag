@@ -1,0 +1,175 @@
+<?php
+/**
+ * @file
+ * Hook implementations and functions for the tag module.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function tag_menu() {
+  $items = array();
+  $items['bubblesort'] = array(
+    'title' => t('BubbleSort Simulation'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('bubblesort_form'),
+    'access arguments' => array('use bubble sort'),
+  );
+
+	// Administration page.
+  $items['admin/config/system/bubblesort'] = array(
+    'title' => 'Bubble Sort settings',
+    'description' => 'Bubble Sort configurations',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('bubblesort_admin'),
+    'access arguments' => array('administer bubble sort settings'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'tag.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function tag_permission() {
+  return array(
+    'use bubble sort' => array(
+      'title' => t('Use Bubble Sort Simulation'),
+    ),
+    'administer bubble sort settings' => array(
+      'title' => t('Configure Bubble Sort Simulation'),
+    ),
+  );
+}
+
+include 'tag.api.php';
+
+function bubblesort_form($form, &$form_state) {
+  drupal_add_js(drupal_get_path('module', 'tag') . '/js/bubblesort.js');
+  drupal_add_css(drupal_get_path('module', 'tag') . '/css/bubblesort.css');
+
+  $size = variable_get('bubblesort_size', 10);
+	$form = array();
+
+ 	if (!isset($form_state['storage']))
+ 		$form_state['storage'] = array();
+  $storage = &$form_state['storage'];
+
+  $op = !isset($form_state['values']['op']) ? '' : $form_state['values']['op'];
+
+  // progress flag
+  $progress = TRUE;
+
+  // Processes Shuffle button
+  if (empty($storage) || $op == t('Shuffle')) {
+    $storage['a'] =
+    $storage['b'] = 0;
+    $storage['array'] = _bubblesort_shuffle($size);
+  }
+
+  // Processes Step button
+  if ($op == t('Step')) {
+    $progress = _bubblesort_step($storage['array'], $storage['a'], $storage['b']);
+  }
+
+  // our container for the AJAX
+  $form['bubblesort'] = array(
+    '#type' => 'container',
+    '#prefix' => '<div id="bubblesort">',
+    '#suffix' => '</div>',
+  );
+
+  $form['bubblesort']['index'] = array(
+    '#title' => t('Index key'),
+    '#type' => 'textfield',
+    '#value' => $storage['b'],
+    '#disabled' => 'true',
+    '#size' => 5,
+  );
+
+  // Outputs an array list.
+  $options = array();
+  foreach ($storage['array'] as $key => $value) {
+    $options[$key] = $key . ': ' . $value;
+  }  
+
+  $sort = $storage['array'];
+  sort($sort);
+  $sort = array_flip($sort);
+  foreach ($storage['array'] as $key => $value) {
+  	$class = '';
+  	if ($op == t('Step')) {
+	  	if ($key == $storage['a'])
+	  		$class = ' highlight1'; else
+	  	if ($key == $storage['b'])
+	  		$class = ' highlight2';
+  	}
+
+  	$rows[$key] = ['data' => 
+  		[$value, '<div class="c'. ($sort[$value]+1). $class
+  		.'" style="width: '.(30+($value*2)).'px"></div>']
+  	];
+  }
+  $form['bubblesort']['display'] = array(
+  	'#markup' => theme_table(['header' => [], 'rows' => $rows, 
+  		'attributes' => [],
+  		'colgroups' => [],
+  		'caption' => '',
+  		'sticky' => '',
+  		'empty' => '',
+  		])
+  );
+
+  // Shufle button.
+  $form['bubblesort']['shuffle'] = array(
+    '#type' => 'submit',
+    '#value' => t('Shuffle'),
+    '#executes_submit_callback' => FALSE,
+    '#ajax' => array(
+      'effect' => 'fade',
+      'method' => 'replace',
+      'wrapper' => 'bubblesort',
+      'callback' => 'bubblesort_form_ajax',
+    ),
+  );
+
+  // Step button.
+  $form['bubblesort']['step'] = array(
+    '#type' => 'button',
+    '#value' => t('Step'),
+    '#executes_submit_callback' => FALSE,
+    '#ajax' => array(
+      'callback' => 'bubblesort_form_ajax',
+      'wrapper' => 'bubblesort',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+    '#attributes' => array(
+    	'class' => ['btn-step'],
+    	),
+    '#disabled' => !$progress,
+  );
+
+  // Play button.
+  $form['bubblesort']['play'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Auto Play'),
+    '#executes_submit_callback' => FALSE,
+    '#attributes' => array(
+      'class' => array(
+        'auto-play',
+      ),
+    ),
+  );  
+
+	return $form;
+}
+
+/**
+ * ajax handler.
+ */
+function bubblesort_form_ajax($form, &$form_state) {
+  return $form['bubblesort'];
+}
